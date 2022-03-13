@@ -39,7 +39,9 @@ bool homeStepper()
 void setup()
 {
   while (!Serial)
+  {
     delay(10);
+  }
   Serial.begin(115200);
   Serial.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
   Serial.println("~~~~~~ SERIAL INITIATED ~~~~~~");
