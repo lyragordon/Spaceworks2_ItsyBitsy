@@ -30,6 +30,12 @@ int len(int a[])
   return sizeof(a) / sizeof(a[0]);
 }
 
+bool homeStepper()
+{
+  // Rotates the calibration shutter counterclockwise until optical sensor is triggered or timeout is reached, returns success or failure
+  return false;
+}
+
 void setup()
 {
   while (!Serial)
@@ -51,6 +57,11 @@ void setup()
   if (!cam.begin(MLX90640_I2CADDR_DEFAULT, &Wire))
   {
     Serial.println("!!!!!MLX90640 not found!!!!!");
+  }
+
+  if (!homeStepper())
+  {
+    Serial.println("!!!!!Stepper homing failed!!!!!!");
   }
 }
 
