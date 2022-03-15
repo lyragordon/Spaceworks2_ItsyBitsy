@@ -25,15 +25,16 @@ Adafruit_MLX90640 cam;
 
 float frame[32 * 24]; // buffer for full frame of temperatures
 
-int BUFFER_LENGTH = 1;
+const int BUFFER_LENGTH = 3;
 
-byte PING_REQUEST = 'p';
-byte PING_RESPONSE = 'o';
-byte FRAME_REQUEST = 'r';
-byte DF_START = '[';
-byte DF_END = ']';
-byte CMD_END = '?';
-byte RESPONSE_END = '\n';
+const byte PING_REQUEST = 'p';
+const byte PING_RESPONSE = 'o';
+const byte FRAME_REQUEST = 'r';
+const byte DF_START = '[';
+const byte DF_END = ']';
+const byte CMD_START = '<';
+const byte CMD_END = '>';
+const byte LINE_END = '\n';
 
 // ~~~~~ Support Functions ~~~~~
 
@@ -50,9 +51,7 @@ void setup()
     delay(10);
   }
   Serial.begin(115200);
-  Serial.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
   Serial.println("~~~~~~ SERIAL INITIATED ~~~~~~");
-  Serial.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
   for (int i = 0; i < 2; i++)
   {
@@ -73,8 +72,8 @@ void setup()
     Serial.println("!!!!!Stepper homing failed!!!!!!");
   }
 
-  // cam.setMode(MLX90640_INTERLEAVED);
-  cam.setMode(MLX90640_CHESS);
+  cam.setMode(MLX90640_INTERLEAVED);
+  // cam.setMode(MLX90640_CHESS);
 
   cam.setResolution(MLX90640_ADC_18BIT);
 
@@ -98,23 +97,47 @@ void sendFrame()
     }
   }
   Serial.write(DF_END);
-  Serial.write(RESPONSE_END);
+  Serial.write(LINE_END);
+}
+
+void sendPong()
+{
+  Serial.write(CMD_START);
+  Serial.write(PING_RESPONSE);
+  Serial.write(CMD_END);
+  Serial.write(LINE_END);
+}
+
+void watchSerial()
+{
+  if (Serial.available())
+  {
+    char buffer[BUFFER_LENGTH];
+    Serial.readBytes(buffer, BUFFER_LENGTH);
+
+    if (buffer[0] == CMD_START && buffer[2] == CMD_END)
+    {
+      switch (buffer[1])
+      {
+      case PING_REQUEST:
+        sendPong();
+        break;
+
+      case FRAME_REQUEST:
+        sendFrame();
+        break;
+
+      default:
+        Serial.print("Invalid serial command '");
+        Serial.write(buffer[1]);
+        Serial.println("'.");
+        break;
+      }
+    }
+  }
 }
 
 void loop()
 {
-  byte buffer[BUFFER_LENGTH];
-  if (Serial.available())
-  {
-    Serial.readBytesUntil('?', buffer, BUFFER_LENGTH);
-    if (buffer[0] == PING_REQUEST)
-    {
-      Serial.write(PING_RESPONSE);
-      Serial.write(RESPONSE_END);
-    }
-    else if (buffer[0] == FRAME_REQUEST)
-    {
-      sendFrame();
-    }
-  }
+  watchSerial();
 }
