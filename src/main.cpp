@@ -25,13 +25,17 @@ Adafruit_MLX90640 cam;
 
 float frame[32 * 24]; // buffer for full frame of temperatures
 
-// ~~~~~ Support Functions ~~~~~
+int BUFFER_LENGTH = 1;
 
-int len(int a[])
-{
-  // This will get compiled away so it's not a performance hit, just convenient
-  return sizeof(a) / sizeof(a[0]);
-}
+byte PING_REQUEST = 'p';
+byte PING_RESPONSE = 'o';
+byte FRAME_REQUEST = 'r';
+byte DF_START = '[';
+byte DF_END = ']';
+byte CMD_END = '?';
+byte RESPONSE_END = '\n';
+
+// ~~~~~ Support Functions ~~~~~
 
 bool homeStepper()
 {
@@ -50,11 +54,11 @@ void setup()
   Serial.println("~~~~~~ SERIAL INITIATED ~~~~~~");
   Serial.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
 
-  for (int i = 0; i < len(inputPins); i++)
+  for (int i = 0; i < 2; i++)
   {
     pinMode(inputPins[i], INPUT);
   }
-  for (int i = 0; i < len(outputPins); i++)
+  for (int i = 0; i < 2; i++)
   {
     pinMode(outputPins[i], OUTPUT);
   }
@@ -69,93 +73,48 @@ void setup()
     Serial.println("!!!!!Stepper homing failed!!!!!!");
   }
 
-  // stolen from example
-  Serial.print("Serial number: ");
-  Serial.print(cam.serialNumber[0], HEX);
-  Serial.print(cam.serialNumber[1], HEX);
-  Serial.println(cam.serialNumber[2], HEX);
-
   // cam.setMode(MLX90640_INTERLEAVED);
   cam.setMode(MLX90640_CHESS);
-  Serial.print("Current mode: ");
-  if (cam.getMode() == MLX90640_CHESS)
-  {
-    Serial.println("Chess");
-  }
-  else
-  {
-    Serial.println("Interleave");
-  }
 
   cam.setResolution(MLX90640_ADC_18BIT);
-  Serial.print("Current resolution: ");
-  mlx90640_resolution_t res = cam.getResolution();
-  switch (res)
-  {
-  case MLX90640_ADC_16BIT:
-    Serial.println("16 bit");
-    break;
-  case MLX90640_ADC_17BIT:
-    Serial.println("17 bit");
-    break;
-  case MLX90640_ADC_18BIT:
-    Serial.println("18 bit");
-    break;
-  case MLX90640_ADC_19BIT:
-    Serial.println("19 bit");
-    break;
-  }
 
   cam.setRefreshRate(MLX90640_2_HZ);
-  Serial.print("Current frame rate: ");
-  mlx90640_refreshrate_t rate = cam.getRefreshRate();
-  switch (rate)
-  {
-  case MLX90640_0_5_HZ:
-    Serial.println("0.5 Hz");
-    break;
-  case MLX90640_1_HZ:
-    Serial.println("1 Hz");
-    break;
-  case MLX90640_2_HZ:
-    Serial.println("2 Hz");
-    break;
-  case MLX90640_4_HZ:
-    Serial.println("4 Hz");
-    break;
-  case MLX90640_8_HZ:
-    Serial.println("8 Hz");
-    break;
-  case MLX90640_16_HZ:
-    Serial.println("16 Hz");
-    break;
-  case MLX90640_32_HZ:
-    Serial.println("32 Hz");
-    break;
-  case MLX90640_64_HZ:
-    Serial.println("64 Hz");
-    break;
-  }
 }
 
-void loop()
+void sendFrame()
 {
-  // more stolen code
-  delay(500);
-  if (cam.getFrame(frame) != 0)
-  {
-    Serial.println("Failed");
-    return;
-  }
-  Serial.println();
-  Serial.println();
+  cam.getFrame(frame);
+  Serial.write(DF_START);
   for (uint8_t h = 0; h < 24; h++)
   {
     for (uint8_t w = 0; w < 32; w++)
     {
       float t = frame[h * 32 + w];
       Serial.print(t, 1);
-      Serial.print(", ");
+      if (h * 32 + w != 767)
+      {
+        Serial.print(',');
+      }
+    }
+  }
+  Serial.write(DF_END);
+  Serial.write(RESPONSE_END);
+}
+
+void loop()
+{
+  byte buffer[BUFFER_LENGTH];
+  if (Serial.available())
+  {
+    Serial.readBytesUntil('?', buffer, BUFFER_LENGTH);
+    if (buffer[0] == PING_REQUEST)
+    {
+      Serial.write(PING_RESPONSE);
+      Serial.write(RESPONSE_END);
+    }
+    else if (buffer[0] == FRAME_REQUEST)
+    {
+      sendFrame();
     }
   }
 }
