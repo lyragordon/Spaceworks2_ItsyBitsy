@@ -38,10 +38,37 @@ const byte LINE_END = '\n';
 
 // ~~~~~ Support Functions ~~~~~
 
+bool move(int relative)
+{
+  stepper.move(relative);
+  while (stepper.distanceToGo())
+  {
+    stepper.run();
+  }
+}
+
+bool opticalSensor()
+{
+  digitalWrite(OPTO_EN, HIGH);
+  bool tmp = digitalRead(OPTO);
+  digitalWrite(OPTO_EN, LOW);
+  return tmp;
+}
+
 bool homeStepper()
 {
   // Rotates the calibration shutter counterclockwise until optical sensor is triggered or timeout is reached, returns success or failure
-  return false;
+  int timeout = millis() + 10000; // 10 second timeout
+  while (opticalSensor() == false)
+  {
+    move(-1); // Rotate 1 step CCW
+    if (millis() > timeout)
+    {
+      return false;
+    }
+  }
+  stepper.setCurrentPosition(0); // Set open shutter to position 0
+  return true;
 }
 
 void setup()
@@ -66,18 +93,17 @@ void setup()
   {
     Serial.println("!!!!!MLX90640 not found!!!!!");
   }
+  cam.setMode(MLX90640_INTERLEAVED);
+  // cam.setMode(MLX90640_CHESS);
+  cam.setResolution(MLX90640_ADC_18BIT);
+  cam.setRefreshRate(MLX90640_2_HZ);
 
+  stepper.setMaxSpeed(200); // max speed of 1 rotation per second
+  // stepper.setAcceleration()
   if (!homeStepper())
   {
     Serial.println("!!!!!Stepper homing failed!!!!!!");
   }
-
-  cam.setMode(MLX90640_INTERLEAVED);
-  // cam.setMode(MLX90640_CHESS);
-
-  cam.setResolution(MLX90640_ADC_18BIT);
-
-  cam.setRefreshRate(MLX90640_2_HZ);
 }
 
 void sendFrame()
