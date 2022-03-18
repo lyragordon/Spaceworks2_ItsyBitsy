@@ -38,7 +38,7 @@ const byte LINE_END = '\n';
 
 // ~~~~~ Support Functions ~~~~~
 
-bool move(int relative)
+void move(int relative)
 {
   stepper.move(relative);
   while (stepper.distanceToGo())
@@ -92,6 +92,10 @@ void setup()
   if (!cam.begin(MLX90640_I2CADDR_DEFAULT, &Wire))
   {
     Serial.println("!!!!!MLX90640 not found!!!!!");
+    while (true)
+    {
+      ; // hang
+    }
   }
   cam.setMode(MLX90640_INTERLEAVED);
   // cam.setMode(MLX90640_CHESS);
@@ -103,6 +107,10 @@ void setup()
   if (!homeStepper())
   {
     Serial.println("!!!!!Stepper homing failed!!!!!!");
+    while (true)
+    {
+      ; // hang
+    }
   }
 }
 
