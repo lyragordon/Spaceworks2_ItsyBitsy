@@ -12,7 +12,7 @@
 #define SLP 11
 // I/O
 #define OPTO_EN 7
-#define OPTO 5
+#define OPTO 0
 #define TEMP A4
 
 // ~~~~~ Global Variables ~~~~~
@@ -38,15 +38,6 @@ const byte LINE_END = '\n';
 
 // ~~~~~ Support Functions ~~~~~
 
-void move(int relative)
-{
-  stepper.move(relative);
-  while (stepper.distanceToGo())
-  {
-    stepper.run();
-  }
-}
-
 bool opticalSensor()
 {
   digitalWrite(OPTO_EN, HIGH);
@@ -58,16 +49,23 @@ bool opticalSensor()
 bool homeStepper()
 {
   // Rotates the calibration shutter counterclockwise until optical sensor is triggered or timeout is reached, returns success or failure
-  int timeout = millis() + 10000; // 10 second timeout
+  int timeout = millis() + 20000; // 20 second timeout
+  digitalWrite(SLP, HIGH);
   while (opticalSensor() == false)
   {
-    move(-1); // Rotate 1 step CCW
+    stepper.run();
+    if (!stepper.distanceToGo())
+    {
+      stepper.move(-1);
+    }
     if (millis() > timeout)
     {
+      digitalWrite(SLP, LOW);
       return false;
     }
   }
   stepper.setCurrentPosition(0); // Set open shutter to position 0
+  digitalWrite(SLP, LOW);
   return true;
 }
 
@@ -82,28 +80,33 @@ void setup()
 
   for (int i = 0; i < 2; i++)
   {
-    pinMode(inputPins[i], INPUT);
+    pinMode(inputPins[i], INPUT_PULLDOWN);
   }
   for (int i = 0; i < 2; i++)
   {
     pinMode(outputPins[i], OUTPUT);
+    digitalWrite(outputPins[i], LOW);
   }
 
   if (!cam.begin(MLX90640_I2CADDR_DEFAULT, &Wire))
   {
     Serial.println("!!!!!MLX90640 not found!!!!!");
-    while (true)
-    {
-      ; // hang
-    }
+    // while (true)
+    // {
+    //   ; // hang
+    // }
   }
-  cam.setMode(MLX90640_INTERLEAVED);
-  // cam.setMode(MLX90640_CHESS);
-  cam.setResolution(MLX90640_ADC_18BIT);
-  cam.setRefreshRate(MLX90640_2_HZ);
+  else
+  {
+    cam.setMode(MLX90640_INTERLEAVED);
+    // cam.setMode(MLX90640_CHESS);
+    cam.setResolution(MLX90640_ADC_18BIT);
+    cam.setRefreshRate(MLX90640_2_HZ);
+  }
 
-  stepper.setMaxSpeed(200); // max speed of 1 rotation per second
-  // stepper.setAcceleration()
+  stepper.setMaxSpeed(400); // max speed of 1 rotation per second
+  stepper.setAcceleration(100);
+
   if (!homeStepper())
   {
     Serial.println("!!!!!Stepper homing failed!!!!!!");
@@ -111,6 +114,10 @@ void setup()
     {
       ; // hang
     }
+  }
+  else
+  {
+    Serial.println("Stepper homing successful.");
   }
 }
 
