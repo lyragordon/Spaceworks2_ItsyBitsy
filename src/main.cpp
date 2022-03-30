@@ -15,6 +15,10 @@
 #define OPTO 0
 #define TEMP A4
 
+// ~~~~~ Macros ~~~~~
+#define STEPS_PER_DEGREE 0.556
+#define ANGLE 90 // degrees between open and closed shutter position
+
 // ~~~~~ Global Variables ~~~~~
 
 int inputPins[] = {TEMP, OPTO};
@@ -65,6 +69,11 @@ bool homeStepper()
     }
   }
   stepper.setCurrentPosition(0); // Set open shutter to position 0
+  stepper.move((int)(ANGLE * STEPS_PER_DEGREE));
+  while (stepper.distanceToGo())
+  {
+    stepper.run();
+  }
   digitalWrite(SLP, LOW);
   return true;
 }
@@ -105,7 +114,7 @@ void setup()
   }
 
   stepper.setMaxSpeed(400); // max speed of 1 rotation per second
-  stepper.setAcceleration(100);
+  stepper.setAcceleration(500);
 
   if (!homeStepper())
   {
