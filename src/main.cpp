@@ -12,7 +12,7 @@
 #define SLP 11
 // I/O
 #define OPTO_EN 7
-#define OPTO 0
+#define OPTO 1
 #define TEMP A4
 
 // ~~~~~ Macros ~~~~~
