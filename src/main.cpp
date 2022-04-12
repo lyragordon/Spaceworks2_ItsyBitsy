@@ -40,7 +40,17 @@ const byte CMD_START = '<';
 const byte CMD_END = '>';
 const byte LINE_END = '\n';
 
+const float R3 = 100100.0; // Resistance of thermistor voltage divider resistor
+
 // ~~~~~ Support Functions ~~~~~
+
+float readThermistorResistance()
+{
+  int raw = analogRead(TEMP);
+  float V = raw * 3.3 / 4096.0;
+  float R = 3.3 * (R3 / V) - R3;
+  return R;
+}
 
 bool opticalSensor()
 {
@@ -94,6 +104,8 @@ void setup()
     pinMode(outputPins[i], OUTPUT);
     digitalWrite(outputPins[i], LOW);
   }
+  analogReadResolution(12); // Set analog read resolution to 12 bits (4096 vals)
+
 
   if (!cam.begin(MLX90640_I2CADDR_DEFAULT, &Wire))
   {
