@@ -56,13 +56,10 @@ bool homeStepper()
   // Rotates the calibration shutter counterclockwise until optical sensor is triggered or timeout is reached, returns success or failure
   int timeout = millis() + 20000; // 20 second timeout
   digitalWrite(SLP, HIGH);
+  stepper.move(-1000);
   while (opticalSensor() == false)
   {
     stepper.run();
-    if (!stepper.distanceToGo())
-    {
-      stepper.move(-1);
-    }
     if (millis() > timeout)
     {
       digitalWrite(SLP, LOW);
