@@ -45,9 +45,10 @@ const byte LINE_END = '\n';
 bool opticalSensor()
 {
   digitalWrite(OPTO_EN, HIGH);
+  delay(10);
   bool tmp = digitalRead(OPTO);
   digitalWrite(OPTO_EN, LOW);
-  return tmp;
+  return !tmp;
 }
 
 bool homeStepper()
