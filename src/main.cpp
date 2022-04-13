@@ -17,7 +17,7 @@
 
 // ~~~~~ Macros ~~~~~
 #define STEPS_PER_DEGREE 0.556
-#define ANGLE 80 // degrees between open and closed shutter position
+#define ANGLE 70 // degrees between open and closed shutter position
 
 // ~~~~~ Global Variables ~~~~~
 
@@ -68,6 +68,16 @@ bool opticalSensor()
   return !tmp;
 }
 
+void moveStepper(int steps)
+{
+  digitalWrite(SLP, HIGH);
+  stepper.move(steps);
+  while (stepper.distanceToGo())
+  {
+    stepper.run();
+  }
+  digitalWrite(SLP, LOW);
+}
 bool homeStepper()
 {
   // Rotates the calibration shutter counterclockwise until optical sensor is triggered or timeout is reached, returns success or failure
@@ -130,8 +140,8 @@ void setup()
     cam.setRefreshRate(MLX90640_2_HZ);
   }
 
-  stepper.setMaxSpeed(400); // max speed of 1 rotation per second
-  stepper.setAcceleration(500);
+  stepper.setMaxSpeed(50.0);
+  stepper.setAcceleration(100.0);
 
   if (!homeStepper())
   {
@@ -149,7 +159,10 @@ void setup()
 
 void sendFrame()
 {
+  moveStepper(-1 * (int)(ANGLE * STEPS_PER_DEGREE));
+  delay(1000);
   cam.getFrame(frame);
+  delay(1000);
   Serial.write(DF_START);
   for (uint8_t h = 0; h < 24; h++)
   {
@@ -165,6 +178,7 @@ void sendFrame()
   }
   Serial.write(DF_END);
   Serial.write(LINE_END);
+  moveStepper((int)(ANGLE * STEPS_PER_DEGREE));
 }
 
 void sendPong()
@@ -211,6 +225,6 @@ void watchSerial()
 void loop()
 {
   watchSerial();
-  Serial.print(readThermistor());
-  Serial.println(" deg C");
+  // Serial.print(readThermistor());
+  // Serial.println(" deg C");
 }
