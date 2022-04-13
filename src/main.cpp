@@ -34,6 +34,7 @@ const int BUFFER_LENGTH = 3;
 const byte PING_REQUEST = 'p';
 const byte PING_RESPONSE = 'o';
 const byte FRAME_REQUEST = 'r';
+const byte HOME_REQUEST = 'h';
 const byte DF_START = '[';
 const byte DF_END = ']';
 const byte CMD_START = '<';
@@ -44,12 +45,18 @@ const float R3 = 100100.0; // Resistance of thermistor voltage divider resistor
 
 // ~~~~~ Support Functions ~~~~~
 
-float readThermistorResistance()
+float restistanceToTemp(float R)
+{
+  float T = 0;
+  return T;
+}
+
+float readThermistor()
 {
   int raw = analogRead(TEMP);
   float V = raw * 3.3 / 4096.0;
   float R = 3.3 * (R3 / V) - R3;
-  return R;
+  return restistanceToTemp(R);
 }
 
 bool opticalSensor()
@@ -66,11 +73,6 @@ bool homeStepper()
   // Rotates the calibration shutter counterclockwise until optical sensor is triggered or timeout is reached, returns success or failure
   int timeout = millis() + 20000; // 20 second timeout
   digitalWrite(SLP, HIGH);
-  stepper.move(25);
-  while (stepper.distanceToGo())
-  {
-    stepper.run();
-  }
   stepper.move(-1000);
   while (opticalSensor() == false)
   {
@@ -192,6 +194,10 @@ void watchSerial()
         sendFrame();
         break;
 
+      case HOME_REQUEST:
+        homeStepper();
+        break;
+
       default:
         Serial.print("Invalid serial command '");
         Serial.write(buffer[1]);
@@ -205,4 +211,6 @@ void watchSerial()
 void loop()
 {
   watchSerial();
+  Serial.print(readThermistor());
+  Serial.println(" deg C");
 }
