@@ -17,7 +17,7 @@
 
 // ~~~~~ Macros ~~~~~
 #define STEPS_PER_DEGREE 0.556
-#define ANGLE 90 // degrees between open and closed shutter position
+#define ANGLE 80 // degrees between open and closed shutter position
 
 // ~~~~~ Global Variables ~~~~~
 
@@ -66,6 +66,11 @@ bool homeStepper()
   // Rotates the calibration shutter counterclockwise until optical sensor is triggered or timeout is reached, returns success or failure
   int timeout = millis() + 20000; // 20 second timeout
   digitalWrite(SLP, HIGH);
+  stepper.move(25);
+  while (stepper.distanceToGo())
+  {
+    stepper.run();
+  }
   stepper.move(-1000);
   while (opticalSensor() == false)
   {
@@ -106,7 +111,6 @@ void setup()
   }
   analogReadResolution(12); // Set analog read resolution to 12 bits (4096 vals)
 
-
   if (!cam.begin(MLX90640_I2CADDR_DEFAULT, &Wire))
   {
     Serial.println("!!!!!MLX90640 not found!!!!!");
@@ -117,6 +121,7 @@ void setup()
   }
   else
   {
+    Serial.println("MLX90640 detected. Configuring.");
     cam.setMode(MLX90640_INTERLEAVED);
     // cam.setMode(MLX90640_CHESS);
     cam.setResolution(MLX90640_ADC_18BIT);
