@@ -17,7 +17,7 @@
 
 // ~~~~~ Macros ~~~~~
 #define STEPS_PER_DEGREE 0.556
-#define ANGLE 70 // degrees between open and closed shutter position
+#define ANGLE 55 // degrees between open and closed shutter position
 
 // ~~~~~ Global Variables ~~~~~
 
@@ -35,20 +35,39 @@ const byte PING_REQUEST = 'p';
 const byte PING_RESPONSE = 'o';
 const byte FRAME_REQUEST = 'r';
 const byte HOME_REQUEST = 'h';
+const byte CAL_REQUEST = 'c';
 const byte DF_START = '[';
 const byte DF_END = ']';
 const byte CMD_START = '<';
 const byte CMD_END = '>';
 const byte LINE_END = '\n';
 
+#define LUT_NUM_VALS 11
+const int lookupTable[LUT_NUM_VALS][2] = {{20, 124692}, {21, 119253}, {22, 114078}, {23, 109152}, {24, 104464}, {25, 100000}, {26, 95747}, {27, 91697}, {28, 87837}, {29, 84157}, {30, 80650}};
 const float R3 = 100100.0; // Resistance of thermistor voltage divider resistor
 
 // ~~~~~ Support Functions ~~~~~
 
-float restistanceToTemp(float R)
+float resistanceToTemp(float R)
 {
-  float T = 0;
-  return T;
+  for (int i = 0; i < (LUT_NUM_VALS - 1); i++)
+  {
+    if (R < lookupTable[i][1] && R > lookupTable[i + 1][1])
+    {
+      // linear interpolation
+      return (lookupTable[i + 1][0] - lookupTable[i][0]) * (R - lookupTable[i][1]) / (lookupTable[i + 1][1] - lookupTable[i][1]) + lookupTable[i][0];
+    }
+    else if (R == lookupTable[i][1])
+    {
+      return (float)lookupTable[i][0];
+    }
+    else if (R == lookupTable[i + 1][1])
+    {
+      return (float)lookupTable[i + 1][0];
+    }
+  }
+  // if resistance greater than max in LUT or less than min in LUT,
+  return -1.0;
 }
 
 float readThermistor()
@@ -56,7 +75,7 @@ float readThermistor()
   int raw = analogRead(TEMP);
   float V = raw * 3.3 / 4096.0;
   float R = 3.3 * (R3 / V) - R3;
-  return restistanceToTemp(R);
+  return resistanceToTemp(R);
 }
 
 bool opticalSensor()
@@ -78,9 +97,14 @@ void moveStepper(int steps)
   }
   digitalWrite(SLP, LOW);
 }
+
 bool homeStepper()
 {
   // Rotates the calibration shutter counterclockwise until optical sensor is triggered or timeout is reached, returns success or failure
+  if (opticalSensor())
+  {
+    moveStepper(30);
+  }
   int timeout = millis() + 20000; // 20 second timeout
   digitalWrite(SLP, HIGH);
   stepper.move(-1000);
@@ -101,6 +125,34 @@ bool homeStepper()
   }
   digitalWrite(SLP, LOW);
   return true;
+}
+
+float cameraReadAvgTemp()
+{
+  cam.getFrame(frame); // load camera data into frame buffer
+  float avg = 0;
+  for (int i = 0; i < 32 * 24; i++)
+  {
+    avg += frame[i];
+  }
+  avg = avg / (32 * 24);
+  return avg;
+}
+
+void calTemp()
+{
+  if (opticalSensor())
+  {
+    homeStepper();
+    delay(1000); // let reading settle
+  }
+
+  float thermistorReading = readThermistor();
+  float cameraReading = cameraReadAvgTemp();
+  Serial.print("thermistor: ");
+  Serial.print(thermistorReading);
+  Serial.print(" | cam avg: ");
+  Serial.println(cameraReading);
 }
 
 void setup()
@@ -212,6 +264,10 @@ void watchSerial()
         homeStepper();
         break;
 
+      case CAL_REQUEST:
+        calTemp();
+        break;
+
       default:
         Serial.print("Invalid serial command '");
         Serial.write(buffer[1]);
@@ -225,6 +281,4 @@ void watchSerial()
 void loop()
 {
   watchSerial();
-  // Serial.print(readThermistor());
-  // Serial.println(" deg C");
 }
