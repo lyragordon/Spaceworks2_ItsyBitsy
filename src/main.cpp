@@ -2,6 +2,7 @@
 #include <AccelStepper.h>
 #include <Adafruit_MLX90640.h>
 #include <Adafruit_BusIO_Register.h>
+#include <Adafruit_DotStar.h>
 
 // ~~~~~ Pin Definitions ~~~~~
 // Stepper motor
@@ -14,6 +15,8 @@
 #define OPTO_EN 7
 #define OPTO 1
 #define TEMP A4
+#define LED_CLK 6
+#define LED_DATA 8
 
 // ~~~~~ Macros ~~~~~
 #define STEPS_PER_DEGREE 0.556
@@ -26,6 +29,7 @@ int outputPins[] = {OPTO_EN, SLP};
 
 AccelStepper stepper = AccelStepper(AccelStepper::FULL4WIRE, A1, A2, B1, B2);
 Adafruit_MLX90640 cam;
+Adafruit_DotStar led(1, LED_DATA, LED_CLK, DOTSTAR_BRG);
 
 float frame[32 * 24]; // buffer for full frame of temperatures
 
@@ -174,6 +178,8 @@ void setup()
     digitalWrite(outputPins[i], LOW);
   }
   analogReadResolution(12); // Set analog read resolution to 12 bits (4096 vals)
+  led.begin();
+  led.show();
 
   if (!cam.begin(MLX90640_I2CADDR_DEFAULT, &Wire))
   {
