@@ -19,36 +19,36 @@
 #define LED_DATA 8
 
 // ~~~~~ Macros ~~~~~
-#define STEPS_PER_DEGREE 0.556
-#define ANGLE 55 // degrees between open and closed shutter position
+#define STEPS_PER_DEGREE 0.556   // number of stepper motor steps per rotational degree
+#define ANGLE 55                 // degrees between open and closed shutter position
+#define LUT_NUM_VALS 12          // number of data points in the thermistor lookup table
+#define STEPPER_MAX_SPEED 50     // maximum stepper speed in steps/sec
+#define STEPPER_ACCELERATION 100 // stepper acceleration/deceleration rate in steps/sec^2
 
 // ~~~~~ Global Variables ~~~~~
-
-int inputPins[] = {TEMP, OPTO};
-int outputPins[] = {OPTO_EN, SLP};
-
 AccelStepper stepper = AccelStepper(AccelStepper::FULL4WIRE, A1, A2, B1, B2);
 Adafruit_MLX90640 cam;
 Adafruit_DotStar led(1, LED_DATA, LED_CLK, DOTSTAR_BRG);
 
 float frame[32 * 24]; // buffer for full frame of temperatures
 
-const int BUFFER_LENGTH = 3;
+const int BUFFER_LENGTH = 3; // number of characters to read from the serial buffer, 3 characters to contain CMD_START, the command byte, and CMD_END
 
-const byte PING_REQUEST = 'p';
-const byte PING_RESPONSE = 'o';
-const byte FRAME_REQUEST = 'r';
-const byte HOME_REQUEST = 'h';
-const byte CAL_REQUEST = 'c';
-const byte DF_START = '[';
-const byte DF_END = ']';
-const byte CMD_START = '<';
-const byte CMD_END = '>';
-const byte LINE_END = '\n';
+const byte PING_REQUEST = 'p';    // prompts a 'pong' response
+const byte PING_RESPONSE = 'o';   // byte to send as 'pong' response
+const byte FRAME_REQUEST = 'r';   // prompts a regular image to be taken and sent
+const byte HOME_REQUEST = 'h';    // prompts device to home stepper motor
+const byte CAL_REQUEST = 'c';     // prompts device to calibrate image temperature values
+const byte SHUTTER_REQUEST = 's'; // prompts an image of the closed shutter to be taken and transmitted
+const byte DF_START = '[';        // demarcates the beginning of a data frame
+const byte DF_END = ']';          // demarcates the end of a data frame
+const byte CMD_START = '<';       // demarcates the beginning of a serial command
+const byte CMD_END = '>';         // demarcates the end of a serial command
+const byte LINE_END = '\n';       // byte to signify the end of a serial line
 
-#define LUT_NUM_VALS 11
-const int lookupTable[LUT_NUM_VALS][2] = {{20, 124692}, {21, 119253}, {22, 114078}, {23, 109152}, {24, 104464}, {25, 100000}, {26, 95747}, {27, 91697}, {28, 87837}, {29, 84157}, {30, 80650}};
-const float R3 = 100100.0; // Resistance of thermistor voltage divider resistor
+// lookup table of temperatures in deg C and respective thermistor resistances in ohms
+const int lookupTable[LUT_NUM_VALS][2] = {{20, 124692}, {21, 119253}, {22, 114078}, {23, 109152}, {24, 104464}, {25, 100000}, {26, 95747}, {27, 91697}, {28, 87837}, {29, 84157}, {30, 80650}, {31, 77305}};
+const float R3 = 100100.0; // Resistance of thermistor voltage divider resistor R3
 
 // ~~~~~ Support Functions ~~~~~
 
@@ -74,6 +74,7 @@ float resistanceToTemp(float R)
   return -1.0;
 }
 
+// Returns the temperature of the thermistor in degrees C
 float readThermistor()
 {
   int raw = analogRead(TEMP);
@@ -82,6 +83,7 @@ float readThermistor()
   return resistanceToTemp(R);
 }
 
+// Returns the state of the optical proximity sensor, true if obstructed, else false
 bool opticalSensor()
 {
   digitalWrite(OPTO_EN, HIGH);
@@ -91,6 +93,7 @@ bool opticalSensor()
   return !tmp;
 }
 
+// Moves the stepper motor some number of steps
 void moveStepper(int steps)
 {
   digitalWrite(SLP, HIGH);
@@ -102,9 +105,9 @@ void moveStepper(int steps)
   digitalWrite(SLP, LOW);
 }
 
+// Rotates the calibration shutter counterclockwise until optical sensor is triggered or timeout is reached, returns success or failure
 bool homeStepper()
 {
-  // Rotates the calibration shutter counterclockwise until optical sensor is triggered or timeout is reached, returns success or failure
   if (opticalSensor())
   {
     moveStepper(30);
@@ -115,7 +118,7 @@ bool homeStepper()
   while (opticalSensor() == false)
   {
     stepper.run();
-    if (millis() > timeout)
+    if ((int)millis() > timeout)
     {
       digitalWrite(SLP, LOW);
       return false;
@@ -131,6 +134,7 @@ bool homeStepper()
   return true;
 }
 
+// Returns the average uncorrected temperature value of all pixels in the sensor
 float cameraReadAvgTemp()
 {
   cam.getFrame(frame); // load camera data into frame buffer
@@ -143,6 +147,7 @@ float cameraReadAvgTemp()
   return avg;
 }
 
+// Overwrites the calibration of the camera temperature
 void calTemp()
 {
   if (opticalSensor())
@@ -159,68 +164,10 @@ void calTemp()
   Serial.println(cameraReading);
 }
 
-void setup()
+// Take a single exposure and send it over serial
+void sendImage()
 {
-  while (!Serial)
-  {
-    delay(10);
-  }
-  Serial.begin(115200);
-  Serial.println("~~~~~~ SERIAL INITIATED ~~~~~~");
-
-  for (int i = 0; i < 2; i++)
-  {
-    pinMode(inputPins[i], INPUT_PULLDOWN);
-  }
-  for (int i = 0; i < 2; i++)
-  {
-    pinMode(outputPins[i], OUTPUT);
-    digitalWrite(outputPins[i], LOW);
-  }
-  analogReadResolution(12); // Set analog read resolution to 12 bits (4096 vals)
-  led.begin();
-  led.show();
-
-  if (!cam.begin(MLX90640_I2CADDR_DEFAULT, &Wire))
-  {
-    Serial.println("!!!!!MLX90640 not found!!!!!");
-    // while (true)
-    // {
-    //   ; // hang
-    // }
-  }
-  else
-  {
-    Serial.println("MLX90640 detected. Configuring.");
-    cam.setMode(MLX90640_INTERLEAVED);
-    // cam.setMode(MLX90640_CHESS);
-    cam.setResolution(MLX90640_ADC_18BIT);
-    cam.setRefreshRate(MLX90640_2_HZ);
-  }
-
-  stepper.setMaxSpeed(50.0);
-  stepper.setAcceleration(100.0);
-
-  if (!homeStepper())
-  {
-    Serial.println("!!!!!Stepper homing failed!!!!!!");
-    while (true)
-    {
-      ; // hang
-    }
-  }
-  else
-  {
-    Serial.println("Stepper homing successful.");
-  }
-}
-
-void sendFrame()
-{
-  moveStepper(-1 * (int)(ANGLE * STEPS_PER_DEGREE));
-  delay(1000);
   cam.getFrame(frame);
-  delay(1000);
   Serial.write(DF_START);
   for (uint8_t h = 0; h < 24; h++)
   {
@@ -236,9 +183,32 @@ void sendFrame()
   }
   Serial.write(DF_END);
   Serial.write(LINE_END);
+}
+
+// Send an image of the closed shutter over serial
+void sendShutterImage()
+{
+  // ensure shutter is positioned over lens
+  if (opticalSensor())
+  {
+    homeStepper(); // locate shutter and position it over lens
+    delay(1000);   // allow image to settle
+  }
+  sendImage();
+  delay(1000);
+}
+
+// Open the shutter, take a single frame, and send over serial
+void sendFrame()
+{
+  moveStepper(-1 * (int)(ANGLE * STEPS_PER_DEGREE));
+  delay(1000);
+  sendImage();
+  delay(1000);
   moveStepper((int)(ANGLE * STEPS_PER_DEGREE));
 }
 
+// Send a response to a ping over serial
 void sendPong()
 {
   Serial.write(CMD_START);
@@ -247,6 +217,7 @@ void sendPong()
   Serial.write(LINE_END);
 }
 
+// monitor incoming serial communications and respond accordingly
 void watchSerial()
 {
   if (Serial.available())
@@ -274,6 +245,10 @@ void watchSerial()
         calTemp();
         break;
 
+      case SHUTTER_REQUEST:
+        sendShutterImage();
+        break;
+
       default:
         Serial.print("Invalid serial command '");
         Serial.write(buffer[1]);
@@ -281,6 +256,62 @@ void watchSerial()
         break;
       }
     }
+  }
+}
+
+// ~~~~~~~~~~ Main Functions ~~~~~~~~~~~~~
+
+void setup()
+{
+  while (!Serial)
+  {
+    delay(10); // If serial connection not active, wait doing nothing
+  }
+  Serial.begin(115200);
+  Serial.println("~~~~~~ SERIAL INITIATED ~~~~~~");
+
+  pinMode(TEMP, INPUT_PULLDOWN);
+  pinMode(OPTO, INPUT_PULLDOWN);
+  pinMode(OPTO_EN, OUTPUT);
+  pinMode(SLP, OUTPUT);
+  digitalWrite(OPTO_EN, LOW);
+  digitalWrite(SLP, LOW);
+
+  analogReadResolution(12); // Set analog read resolution to 12 bits (4096 vals)
+  led.begin();
+  led.show();
+
+  if (!cam.begin(MLX90640_I2CADDR_DEFAULT, &Wire))
+  {
+    while (true)
+    {
+      Serial.println("!!!!!MLX90640 not found!!!!!");
+      delay(1000);
+    }
+  }
+  else
+  {
+    Serial.println("MLX90640 detected. Configuring.");
+    cam.setMode(MLX90640_INTERLEAVED);
+    // cam.setMode(MLX90640_CHESS);
+    cam.setResolution(MLX90640_ADC_18BIT);
+    cam.setRefreshRate(MLX90640_2_HZ);
+  }
+
+  stepper.setMaxSpeed(STEPPER_MAX_SPEED);
+  stepper.setAcceleration(STEPPER_ACCELERATION);
+
+  if (!homeStepper())
+  {
+    while (true)
+    {
+      Serial.println("!!!!!Stepper homing failed!!!!!!");
+      delay(1000);
+    }
+  }
+  else
+  {
+    Serial.println("Stepper homing successful.");
   }
 }
 
