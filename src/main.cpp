@@ -21,7 +21,7 @@
 // ~~~~~ Macros ~~~~~
 #define STEPS_PER_DEGREE 0.556   // number of stepper motor steps per rotational degree
 #define ANGLE 55                 // degrees between open and closed shutter position
-#define LUT_NUM_VALS 12          // number of data points in the thermistor lookup table
+#define LUT_NUM_VALS 16          // number of data points in the thermistor lookup table
 #define STEPPER_MAX_SPEED 50     // maximum stepper speed in steps/sec
 #define STEPPER_ACCELERATION 100 // stepper acceleration/deceleration rate in steps/sec^2
 
@@ -47,7 +47,7 @@ const byte CMD_END = '>';         // demarcates the end of a serial command
 const byte LINE_END = '\n';       // byte to signify the end of a serial line
 
 // lookup table of temperatures in deg C and respective thermistor resistances in ohms
-const int lookupTable[LUT_NUM_VALS][2] = {{20, 124692}, {21, 119253}, {22, 114078}, {23, 109152}, {24, 104464}, {25, 100000}, {26, 95747}, {27, 91697}, {28, 87837}, {29, 84157}, {30, 80650}, {31, 77305}};
+const int lookupTable[LUT_NUM_VALS][2] = {{0,321140},{20, 124692}, {21, 119253}, {22, 114078}, {23, 109152}, {24, 104464}, {25, 100000}, {26, 95747}, {27, 91697}, {28, 87837}, {29, 84157}, {30, 80650}, {31, 77305}, {32, 74115}, {33, 71072},{60,24681}};
 const float R3 = 100100.0; // Resistance of thermistor voltage divider resistor R3
 
 // ~~~~~ Support Functions ~~~~~
