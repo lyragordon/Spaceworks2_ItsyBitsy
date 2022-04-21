@@ -31,7 +31,6 @@ Adafruit_MLX90640 cam;
 Adafruit_DotStar led(1, LED_DATA, LED_CLK, DOTSTAR_BRG);
 
 float frame[32 * 24]; // buffer for full frame of temperatures
-float c = 1;
 
 const int BUFFER_LENGTH = 3; // number of characters to read from the serial buffer, 3 characters to contain CMD_START, the command byte, and CMD_END
 
@@ -126,6 +125,7 @@ bool homeStepper(){
 
 // Returns the average uncorrected temperature value of all pixels in the sensor
 float cameraReadAvgTemp(){
+  
   cam.getFrame(frame); // load camera data into frame buffer
   float avg = 0;
   for (int i = 0; i < 32 * 24; i++){
@@ -144,6 +144,7 @@ void calTemp(){
   Serial.write(FLOAT_START);
   Serial.print(c);
   Serial.write(FLOAT_END);
+  Serial.print("\n");
 }
 
 // Take a single exposure and send it over serial
@@ -152,7 +153,7 @@ void sendImage(){
   Serial.write(DF_START);
   for (uint8_t h = 0; h < 24; h++){
     for (uint8_t w = 0; w < 32; w++){
-      float t = frame[h * 32 + w] + c;
+      float t = frame[h * 32 + w];
       Serial.print(t, 1);
       if (h * 32 + w != 767){
         Serial.print(',');
@@ -216,9 +217,13 @@ void watchSerial(){
         break;
       
       case AVG_REQUEST:
-        Serial.write(FLOAT_START);
+        Serial.write(FLOAT_START);moveStepper(-1 * (int)(ANGLE * STEPS_PER_DEGREE));
+        delay(1000);
         Serial.print(cameraReadAvgTemp());
+        delay(1000);
+        moveStepper((int)(ANGLE * STEPS_PER_DEGREE));
         Serial.write(FLOAT_END);
+        Serial.print("\n");
         break;
 
       case SHUTTER_REQUEST:
